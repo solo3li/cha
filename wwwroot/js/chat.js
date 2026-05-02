@@ -10,7 +10,7 @@ let activeChatId = null;
 connection.on("ReceiveMessage", function (chatId, userId, displayName, avatarUrl, message, audioUrl, timestamp) {
     if (activeChatId == chatId) {
         appendMessage(userId, displayName, avatarUrl, message, audioUrl, timestamp);
-        scrollToBottom();
+        scrollToBottom(true);
     }
     
     // Update sidebar latest message
@@ -174,7 +174,7 @@ async function loadChat(chatId, name, avatarUrl) {
             appendMessage(m.userId, m.displayName, m.avatarUrl, m.content, m.audioUrl, m.timestamp);
         });
         
-        scrollToBottom();
+        scrollToBottom(false);
     }
 }
 
@@ -296,9 +296,12 @@ window.resetAudioPlayer = function(audioEl) {
     progressBar.style.width = '0%';
 };
 
-function scrollToBottom() {
+function scrollToBottom(smooth = true) {
     const messagesContainer = document.getElementById('chatMessages');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    messagesContainer.scrollTo({
+        top: messagesContainer.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+    });
 }
 
 function escapeHtml(unsafe) {

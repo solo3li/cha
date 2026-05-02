@@ -48,6 +48,9 @@ body, html {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 0; /* Ensures container shrinks properly so scrollbars appear inside it */
 }
 
 .message {
