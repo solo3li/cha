@@ -44,10 +44,11 @@ document.addEventListener("DOMContentLoaded", () => {
             item.classList.add('active');
             
             const chatId = item.getAttribute('data-chat-id');
+            const targetUserId = item.getAttribute('data-target-user-id');
             const chatName = item.querySelector('h6').textContent;
             const chatAvatar = item.querySelector('img').src;
             
-            await loadChat(chatId, chatName, chatAvatar);
+            await loadChat(chatId, chatName, chatAvatar, targetUserId);
         });
     });
 
@@ -178,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-async function loadChat(chatId, name, avatarUrl) {
+async function loadChat(chatId, name, avatarUrl, targetUserId) {
     if (activeChatId) {
         try {
             await connection.invoke("LeaveChat", activeChatId);
@@ -186,6 +187,7 @@ async function loadChat(chatId, name, avatarUrl) {
     }
     
     activeChatId = chatId;
+    window.activeTargetUserId = targetUserId;
     document.getElementById('currentChatId').value = chatId;
     
     document.getElementById('activeChatName').textContent = name;
@@ -193,6 +195,14 @@ async function loadChat(chatId, name, avatarUrl) {
     
     const mainChat = document.querySelector('.main-chat');
     mainChat.classList.remove('d-none');
+    
+    // Toggle call button
+    const startCallBtn = document.getElementById('startCallBtn');
+    if (targetUserId) {
+        startCallBtn.classList.remove('d-none');
+    } else {
+        startCallBtn.classList.add('d-none');
+    }
     
     // Join SignalR group
     try {
@@ -398,3 +408,241 @@ async function addUserToChat(userId) {
         }
     }
 }
+
+// --- WebRTC Logic ---
+let peerConnection = null;
+let localStream = null;
+let isAudioMuted = false;
+let callDurationInterval = null;
+let callStartTime = null;
+
+const rtcConfig = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    const startCallBtn = document.getElementById('startCallBtn');
+    if (startCallBtn) {
+        startCallBtn.addEventListener('click', initiateCall);
+    }
+    
+    document.getElementById('acceptCallBtn').addEventListener('click', acceptCall);
+    document.getElementById('rejectCallBtn').addEventListener('click', rejectCall);
+    document.getElementById('endCallBtn').addEventListener('click', endCall);
+    document.getElementById('muteCallBtn').addEventListener('click', toggleMute);
+});
+
+async function initiateCall() {
+    if (!window.activeTargetUserId) return;
+    
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+        
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                connection.invoke("SendIceCandidate", window.activeTargetUserId, JSON.stringify(event.candidate));
+            }
+        };
+        
+        peerConnection.ontrack = event => {
+            document.getElementById('remoteAudio').srcObject = event.streams[0];
+        };
+        
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        await connection.invoke("InitiateCall", window.activeTargetUserId, activeChatId, currentUserName, currentUserAvatar, JSON.stringify(offer));
+        
+        showActiveCallUI(document.getElementById('activeChatName').textContent, document.getElementById('activeChatAvatar').src, "Calling...");
+        
+    } catch (err) {
+        console.error("Error initiating call:", err);
+        alert("Could not access microphone.");
+    }
+}
+
+function showIncomingCallUI(callerName, callerAvatar) {
+    document.getElementById('incomingCallerName').textContent = callerName;
+    document.getElementById('incomingCallerAvatar').src = callerAvatar || '/images/default-avatar.png';
+    document.getElementById('incomingCallOverlay').classList.remove('d-none');
+}
+
+function hideIncomingCallUI() {
+    document.getElementById('incomingCallOverlay').classList.add('d-none');
+}
+
+function showActiveCallUI(name, avatar, status) {
+    document.getElementById('activeCallName').textContent = name;
+    document.getElementById('activeCallAvatar').src = avatar || '/images/default-avatar.png';
+    document.getElementById('activeCallStatus').textContent = status;
+    document.getElementById('activeCallOverlay').classList.remove('d-none');
+}
+
+function hideActiveCallUI() {
+    document.getElementById('activeCallOverlay').classList.add('d-none');
+    stopCallTimer();
+}
+
+async function acceptCall() {
+    hideIncomingCallUI();
+    const callerName = document.getElementById('incomingCallerName').textContent;
+    const callerAvatar = document.getElementById('incomingCallerAvatar').src;
+    showActiveCallUI(callerName, callerAvatar, "Connecting...");
+    
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+        
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                connection.invoke("SendIceCandidate", window.incomingCallUserId, JSON.stringify(event.candidate));
+            }
+        };
+        
+        peerConnection.ontrack = event => {
+            document.getElementById('remoteAudio').srcObject = event.streams[0];
+        };
+        
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(window.incomingCallOffer)));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        await connection.invoke("AcceptCall", window.incomingCallUserId, JSON.stringify(answer));
+        
+        document.getElementById('activeCallStatus').textContent = "Connected";
+        startCallTimer();
+        
+    } catch (err) {
+        console.error("Error accepting call:", err);
+        endCall();
+    }
+}
+
+async function rejectCall() {
+    hideIncomingCallUI();
+    if (window.incomingCallUserId) {
+        await connection.invoke("RejectCall", window.incomingCallUserId);
+    }
+    cleanupCall();
+}
+
+async function endCall() {
+    let target = window.activeTargetUserId || window.incomingCallUserId;
+    if (target) {
+        try {
+            await connection.invoke("EndCall", target);
+        } catch (e) {}
+    }
+    cleanupCall();
+}
+
+function cleanupCall() {
+    hideIncomingCallUI();
+    hideActiveCallUI();
+    
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    document.getElementById('remoteAudio').srcObject = null;
+    window.incomingCallUserId = null;
+    window.incomingCallOffer = null;
+    
+    stopCallTimer();
+    isAudioMuted = false;
+    updateMuteBtnUI();
+}
+
+function toggleMute() {
+    if (localStream) {
+        isAudioMuted = !isAudioMuted;
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = !isAudioMuted;
+        });
+        updateMuteBtnUI();
+    }
+}
+
+function updateMuteBtnUI() {
+    const btn = document.getElementById('muteCallBtn');
+    if (isAudioMuted) {
+        btn.classList.replace('btn-secondary', 'btn-danger');
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-mic-mute-fill" viewBox="0 0 16 16"><path d="M13 8c0 .564-.094 1.107-.266 1.613l-.814-.814A4.02 4.02 0 0 0 12 8V7a.5.5 0 0 1 1 0v1zm-5 4c.818 0 1.578-.245 2.212-.667l.718.719a4.973 4.973 0 0 1-2.43.923V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 1 0v1a4 4 0 0 0 4 4zm3-9v4.879L5.158 2.037A3.001 3.001 0 0 1 11 3z"/><path d="M9.486 10.607 5 6.12V8a3 3 0 0 0 4.486 2.607zm-7.84-9.253 12 12 .708-.708-12-12-.708.708z"/></svg>`;
+    } else {
+        btn.classList.replace('btn-danger', 'btn-secondary');
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-mic-fill" viewBox="0 0 16 16"><path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/></svg>`;
+    }
+}
+
+function startCallTimer() {
+    callStartTime = Date.now();
+    callDurationInterval = setInterval(() => {
+        const diff = Date.now() - callStartTime;
+        const seconds = Math.floor((diff / 1000) % 60);
+        const minutes = Math.floor((diff / (1000 * 60)) % 60);
+        document.getElementById('activeCallStatus').textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+function stopCallTimer() {
+    if (callDurationInterval) {
+        clearInterval(callDurationInterval);
+        callDurationInterval = null;
+    }
+}
+
+// SignalR Events for WebRTC
+connection.on("ReceiveCall", (callerUserId, chatId, callerName, callerAvatar, offer) => {
+    window.incomingCallUserId = callerUserId;
+    window.incomingCallOffer = offer;
+    showIncomingCallUI(callerName, callerAvatar);
+});
+
+connection.on("CallAccepted", async (answer) => {
+    if (peerConnection) {
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answer)));
+            document.getElementById('activeCallStatus').textContent = "Connected";
+            startCallTimer();
+        } catch (err) {
+            console.error("Error setting remote description:", err);
+        }
+    }
+});
+
+connection.on("CallRejected", () => {
+    alert("Call was rejected.");
+    cleanupCall();
+});
+
+connection.on("CallEnded", () => {
+    cleanupCall();
+});
+
+connection.on("ReceiveIceCandidate", async (candidate) => {
+    if (peerConnection) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)));
+        } catch (err) {
+            console.error("Error adding ICE candidate:", err);
+        }
+    }
+});

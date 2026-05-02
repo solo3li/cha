@@ -57,4 +57,40 @@ public class ChatHub : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, chatId);
     }
+
+    // WebRTC Signaling
+    public async Task InitiateCall(string targetUserId, string chatId, string callerName, string callerAvatar, string offer)
+    {
+        var callerId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (callerId == null) return;
+        await Clients.User(targetUserId).SendAsync("ReceiveCall", callerId, chatId, callerName, callerAvatar, offer);
+    }
+
+    public async Task AcceptCall(string targetUserId, string answer)
+    {
+        var responderId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (responderId == null) return;
+        await Clients.User(targetUserId).SendAsync("CallAccepted", responderId, answer);
+    }
+
+    public async Task RejectCall(string targetUserId)
+    {
+        var responderId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (responderId == null) return;
+        await Clients.User(targetUserId).SendAsync("CallRejected", responderId);
+    }
+
+    public async Task SendIceCandidate(string targetUserId, string candidate)
+    {
+        var senderId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (senderId == null) return;
+        await Clients.User(targetUserId).SendAsync("ReceiveIceCandidate", senderId, candidate);
+    }
+
+    public async Task EndCall(string targetUserId)
+    {
+        var senderId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (senderId == null) return;
+        await Clients.User(targetUserId).SendAsync("CallEnded", senderId);
+    }
 }

@@ -36,7 +36,7 @@
                     var avatarUrl = otherUser?.AvatarUrl ?? "/images/default-avatar.png";
                     var lastMessage = chat.Messages.FirstOrDefault()?.Content ?? (chat.Messages.FirstOrDefault()?.ImageUrl != null ? "🖼️ Image" : (chat.Messages.FirstOrDefault()?.AudioUrl != null ? "🎤 Voice message" : "No messages yet"));
 
-                    <div class="chat-item d-flex align-items-center p-3" data-chat-id="@chat.Id">
+                    <div class="chat-item d-flex align-items-center p-3" data-chat-id="@chat.Id" data-target-user-id="@otherUser?.Id">
                         <img src="@avatarUrl" class="avatar rounded-circle me-3 shadow-sm" alt="@chatName" onerror="this.src='https://ui-avatars.com/api/?name=@chatName&background=random'" />
                         <div class="chat-info flex-grow-1 overflow-hidden">
                             <h6 class="m-0 text-truncate fw-bold text-dark">@chatName</h6>
@@ -78,7 +78,12 @@
                 <h5 class="m-0 fw-bold text-dark" id="activeChatName">Chat Name</h5>
                 <small class="text-success fw-medium">Online</small>
             </div>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex align-items-center">
+                <button class="btn btn-icon text-muted me-2 d-none" id="startCallBtn" title="Audio Call">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-telephone-fill" viewBox="0 0 16 16">
+                      <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
+                    </svg>
+                </button>
                 <button class="btn btn-icon text-muted" title="More options">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-three-dots-vertical" viewBox="0 0 16 16">
                       <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
@@ -204,9 +209,60 @@
   </div>
 </div>
 
+<!-- Incoming Call Overlay -->
+<div id="incomingCallOverlay" class="call-overlay d-none">
+    <div class="call-card glassmorphism text-center p-5">
+        <div class="pulsing-avatar-container mx-auto mb-4">
+            <img src="" id="incomingCallerAvatar" class="call-avatar rounded-circle shadow" alt="Caller" />
+        </div>
+        <h3 id="incomingCallerName" class="text-white fw-bold mb-1">Caller Name</h3>
+        <p class="text-white-50 mb-4">Incoming audio call...</p>
+        <div class="d-flex justify-content-center gap-4">
+            <button id="rejectCallBtn" class="btn btn-danger rounded-circle call-action-btn shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-telephone-x-fill" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511zM11.146 7.854a.5.5 0 0 1 .708 0L13.5 9.507l1.646-1.653a.5.5 0 0 1 .708.708L14.207 10.21l1.647 1.646a.5.5 0 0 1-.708.708L13.5 10.917l-1.646 1.647a.5.5 0 0 1-.708-.708L12.793 10.21l-1.647-1.646a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+            <button id="acceptCallBtn" class="btn btn-success rounded-circle call-action-btn shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-telephone-fill" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Active Call Overlay -->
+<div id="activeCallOverlay" class="call-overlay d-none">
+    <div class="call-card glassmorphism text-center p-5">
+        <div class="mx-auto mb-4">
+            <img src="" id="activeCallAvatar" class="call-avatar rounded-circle shadow" alt="Peer" />
+        </div>
+        <h3 id="activeCallName" class="text-white fw-bold mb-1">Peer Name</h3>
+        <p id="activeCallStatus" class="text-white-50 mb-4">Calling...</p>
+        <div class="d-flex justify-content-center gap-4">
+            <button id="muteCallBtn" class="btn btn-secondary rounded-circle call-action-btn shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-mic-mute-fill" viewBox="0 0 16 16">
+                  <path d="M13 8c0 .564-.094 1.107-.266 1.613l-.814-.814A4.02 4.02 0 0 0 12 8V7a.5.5 0 0 1 1 0v1zm-5 4c.818 0 1.578-.245 2.212-.667l.718.719a4.973 4.973 0 0 1-2.43.923V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 1 0v1a4 4 0 0 0 4 4zm3-9v4.879L5.158 2.037A3.001 3.001 0 0 1 11 3z"/>
+                  <path d="M9.486 10.607 5 6.12V8a3 3 0 0 0 4.486 2.607zm-7.84-9.253 12 12 .708-.708-12-12-.708.708z"/>
+                </svg>
+            </button>
+            <button id="endCallBtn" class="btn btn-danger rounded-circle call-action-btn shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-telephone-x-fill" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511zM11.146 7.854a.5.5 0 0 1 .708 0L13.5 9.507l1.646-1.653a.5.5 0 0 1 .708.708L14.207 10.21l1.647 1.646a.5.5 0 0 1-.708.708L13.5 10.917l-1.646 1.647a.5.5 0 0 1-.708-.708L12.793 10.21l-1.647-1.646a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<audio id="remoteAudio" autoplay class="d-none"></audio>
+
 @section Scripts {
     <script src="~/js/chat.js"></script>
     <script>
         var currentUserId = "@currentUser.Id";
+        var currentUserName = "@(currentUser.DisplayName ?? currentUser.UserName)";
+        var currentUserAvatar = "@(currentUser.AvatarUrl ?? "")";
     </script>
 }
