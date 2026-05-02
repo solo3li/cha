@@ -616,12 +616,13 @@ connection.on("ReceiveCall", (callerUserId, chatId, callerName, callerAvatar, of
     showIncomingCallUI(callerName, callerAvatar);
 });
 
-connection.on("CallAccepted", async (answer) => {
+connection.on("CallAccepted", async (responderId, answer) => {
     if (peerConnection) {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answer)));
             document.getElementById('activeCallStatus').textContent = "Connected";
             startCallTimer();
+            window.incomingCallUserId = responderId; // Ensure we have the responder ID for ending/ICE
         } catch (err) {
             console.error("Error setting remote description:", err);
         }
