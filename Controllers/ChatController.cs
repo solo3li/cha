@@ -12,11 +12,13 @@ public class ChatController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IWebHostEnvironment _env;
 
-    public ChatController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    public ChatController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
     {
         _context = context;
         _userManager = userManager;
+        _env = env;
     }
 
     public async Task<IActionResult> Index()
@@ -86,6 +88,7 @@ public class ChatController : Controller
             .Select(m => new {
                 id = m.Id,
                 content = m.Content,
+                audioUrl = m.AudioUrl,
                 timestamp = m.Timestamp,
                 userId = m.UserId,
                 displayName = m.User.DisplayName ?? m.User.UserName,
@@ -124,5 +127,31 @@ public class ChatController : Controller
         await _context.SaveChangesAsync();
 
         return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UploadAudio(IFormFile audioFile)
+    {
+        if (audioFile == null || audioFile.Length == 0)
+        {
+            return BadRequest("Invalid audio file.");
+        }
+
+        var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var uniqueFileName = Guid.NewGuid().ToString() + ".webm";
+        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await audioFile.CopyToAsync(stream);
+        }
+
+        var audioUrl = $"/uploads/{uniqueFileName}";
+        return Json(new { success = true, audioUrl });
     }
 }

@@ -5,8 +5,8 @@ namespace cha.Models;
 public class Message
 {
     public int Id { get; set; }
-    [Required]
-    public string Content { get; set; } = string.Empty;
+    public string? Content { get; set; }
+    public string? AudioUrl { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
     [Required]
