@@ -7,21 +7,26 @@
 
 <link rel="stylesheet" href="~/css/chat.css" />
 
-<div class="messenger-container d-flex w-100 h-100">
-    <div class="sidebar d-flex flex-column border-end">
-        <div class="sidebar-header p-3 border-bottom d-flex justify-content-between align-items-center">
-            <h4 class="m-0">Chats</h4>
-            <button class="btn btn-light rounded-circle p-2 shadow-sm new-chat-btn" data-bs-toggle="modal" data-bs-target="#newChatModal">
+<div class="messenger-container">
+    <div class="sidebar shadow-sm">
+        <div class="sidebar-header p-3 d-flex justify-content-between align-items-center">
+            <h4 class="m-0 fw-bold">Chats</h4>
+            <button class="btn btn-primary rounded-circle p-2 shadow-sm new-chat-btn d-flex align-items-center justify-content-center" data-bs-toggle="modal" data-bs-target="#newChatModal" style="width: 40px; height: 40px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
                   <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
                   <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
                 </svg>
             </button>
         </div>
-        <div class="sidebar-search p-3">
-            <input type="text" class="form-control rounded-pill" placeholder="Search Messenger" />
+        <div class="sidebar-search p-3 pt-0">
+            <div class="search-input-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search search-icon" viewBox="0 0 16 16">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input type="text" class="form-control" placeholder="Search Messenger" />
+            </div>
         </div>
-        <div class="chat-list flex-grow-1 overflow-auto border-bottom">
+        <div class="chat-list flex-grow-1 overflow-auto">
             @if (Model != null && Model.Any())
             {
                 foreach (var chat in Model)
@@ -29,12 +34,12 @@
                     var otherUser = chat.ChatUsers.FirstOrDefault(cu => cu.UserId != currentUser.Id)?.User;
                     var chatName = chat.IsGroup ? chat.Name : (otherUser?.DisplayName ?? otherUser?.UserName);
                     var avatarUrl = otherUser?.AvatarUrl ?? "/images/default-avatar.png";
-                    var lastMessage = chat.Messages.FirstOrDefault()?.Content ?? "No messages yet";
+                    var lastMessage = chat.Messages.FirstOrDefault()?.Content ?? (chat.Messages.FirstOrDefault()?.ImageUrl != null ? "🖼️ Image" : (chat.Messages.FirstOrDefault()?.AudioUrl != null ? "🎤 Voice message" : "No messages yet"));
 
                     <div class="chat-item d-flex align-items-center p-3" data-chat-id="@chat.Id">
-                        <img src="@avatarUrl" class="avatar rounded-circle me-3" alt="@chatName" onerror="this.src='https://ui-avatars.com/api/?name=@chatName&background=random'" />
+                        <img src="@avatarUrl" class="avatar rounded-circle me-3 shadow-sm" alt="@chatName" onerror="this.src='https://ui-avatars.com/api/?name=@chatName&background=random'" />
                         <div class="chat-info flex-grow-1 overflow-hidden">
-                            <h6 class="m-0 text-truncate font-weight-bold">@chatName</h6>
+                            <h6 class="m-0 text-truncate fw-bold text-dark">@chatName</h6>
                             <p class="m-0 text-muted small text-truncate">@lastMessage</p>
                         </div>
                     </div>
@@ -42,23 +47,23 @@
             }
             else
             {
-                <div class="p-3 text-center text-muted">No chats yet.</div>
+                <div class="p-4 text-center text-muted">No chats yet. Start a conversation!</div>
             }
         </div>
         
-        <div class="available-users-header p-3 bg-light border-bottom">
-            <h6 class="m-0 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Available Users</h6>
+        <div class="available-users-header p-3 bg-light mt-auto">
+            <h6 class="m-0 text-muted text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 0.5px;">Available Users</h6>
         </div>
-        <div class="available-users-list flex-grow-1 overflow-auto" style="max-height: 30%;">
+        <div class="available-users-list flex-grow-0 overflow-auto" style="max-height: 25vh;">
             @if(allUsers != null)
             {
                 foreach(var u in allUsers)
                 {
                     var uName = u.DisplayName ?? u.UserName;
-                    <div class="chat-item d-flex align-items-center p-2 m-1" onclick="startChat('@u.Id')">
-                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" style="width: 36px; height: 36px;" alt="@uName" />
+                    <div class="chat-item available-user-item d-flex align-items-center p-2 m-2 mb-1" onclick="startChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3 shadow-sm" style="width: 32px; height: 32px;" alt="@uName" />
                         <div class="chat-info flex-grow-1 overflow-hidden">
-                            <h6 class="m-0 text-truncate font-weight-bold" style="font-size: 0.95rem;">@uName</h6>
+                            <h6 class="m-0 text-truncate fw-medium" style="font-size: 0.9rem;">@uName</h6>
                         </div>
                     </div>
                 }
@@ -66,33 +71,61 @@
         </div>
     </div>
 
-    <div class="main-chat flex-grow-1 d-flex flex-column d-none bg-light">
-        <div class="chat-header p-3 border-bottom d-flex align-items-center bg-white shadow-sm">
-            <img src="" id="activeChatAvatar" class="avatar rounded-circle me-3" alt="" />
+    <div class="main-chat flex-grow-1 d-flex flex-column d-none">
+        <div class="chat-header p-3 d-flex align-items-center shadow-sm z-index-1">
+            <img src="" id="activeChatAvatar" class="avatar rounded-circle me-3 shadow-sm" alt="" />
             <div class="active-chat-info">
-                <h5 class="m-0 font-weight-bold" id="activeChatName">Chat Name</h5>
+                <h5 class="m-0 fw-bold text-dark" id="activeChatName">Chat Name</h5>
+                <small class="text-success fw-medium">Online</small>
+            </div>
+            <div class="ms-auto">
+                <button class="btn btn-icon text-muted" title="More options">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-three-dots-vertical" viewBox="0 0 16 16">
+                      <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                    </svg>
+                </button>
             </div>
         </div>
+        
         <div class="chat-messages flex-grow-1 p-4 overflow-auto" id="chatMessages">
-            <div class="text-center text-muted mt-5">Select a chat to start messaging</div>
+            <div class="d-flex h-100 justify-content-center align-items-center flex-column text-muted opacity-50">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-chat-dots-fill mb-3" viewBox="0 0 16 16">
+                  <path d="M16 8c0 3.866-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.584.296-1.925.864-4.181 1.234-.2.032-.352-.176-.273-.362.354-.836.674-1.95.77-2.966C.744 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7zM5 8a1 1 0 1 0-2 0 1 1 0 0 0 2 0zm4 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0zm3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+                </svg>
+                <h5>Select a chat to start messaging</h5>
+            </div>
         </div>
-        <div class="chat-input p-3 border-top bg-white">
-            <form id="messageForm" class="d-flex align-items-center">
+        
+        <div class="chat-input p-3 bg-white border-top">
+            <form id="messageForm" class="d-flex align-items-center chat-input-container shadow-sm rounded-pill p-1">
                 <input type="hidden" id="currentChatId" />
-                <button type="button" class="btn text-primary rounded-circle p-2 me-2 btn-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
+                
+                <button type="button" class="btn text-muted rounded-circle p-2 ms-1 btn-icon action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
                       <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3v-3z"/>
                     </svg>
                 </button>
-                <input type="text" id="messageInput" class="form-control rounded-pill flex-grow-1 me-2 px-3 bg-light" placeholder="Aa" autocomplete="off" />
-                <button type="button" id="recordButton" class="btn text-danger rounded-circle p-2 btn-icon me-2" title="Record Voice Message">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-mic-fill" viewBox="0 0 16 16">
+                
+                <!-- Image upload button & hidden input -->
+                <button type="button" id="imageButton" class="btn text-muted rounded-circle p-2 btn-icon action-btn" title="Attach Image">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-image" viewBox="0 0 16 16">
+                      <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                      <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                    </svg>
+                </button>
+                <input type="file" id="imageInput" accept="image/*" class="d-none">
+
+                <input type="text" id="messageInput" class="form-control border-0 shadow-none px-3 flex-grow-1" placeholder="Type a message..." autocomplete="off" />
+                
+                <button type="button" id="recordButton" class="btn text-muted rounded-circle p-2 btn-icon action-btn me-1" title="Record Voice Message">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-mic-fill" viewBox="0 0 16 16">
                       <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
                       <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
                     </svg>
                 </button>
-                <button type="submit" class="btn text-primary rounded-circle p-2 btn-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-send-fill" viewBox="0 0 16 16">
+                
+                <button type="submit" class="btn btn-primary rounded-circle p-2 me-1 shadow-sm d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-send-fill" viewBox="0 0 16 16" style="margin-left: 2px;">
                       <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
                     </svg>
                 </button>
@@ -104,24 +137,29 @@
 <!-- New Chat Modal -->
 <div class="modal fade" id="newChatModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header border-bottom-0 pb-0">
-        <h5 class="modal-title font-weight-bold">New Message</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-bold">New Message</h5>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <div class="mb-3">
-            <input type="text" class="form-control" placeholder="Search for a user..." id="userSearchInput">
+      <div class="modal-body p-4">
+        <div class="mb-4">
+            <div class="search-input-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search search-icon" viewBox="0 0 16 16">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input type="text" class="form-control" placeholder="Search for a user..." id="userSearchInput">
+            </div>
         </div>
-        <div class="list-group user-list">
+        <div class="list-group user-list rounded-3 shadow-sm border overflow-hidden">
             @if(allUsers != null)
             {
                 foreach(var u in allUsers)
                 {
                     var uName = u.DisplayName ?? u.UserName;
-                    <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center" onclick="startChat('@u.Id')">
-                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" width="40" height="40" alt="@uName" />
-                        <span class="font-weight-bold">@uName</span>
+                    <button type="button" class="list-group-item list-group-item-action border-0 border-bottom d-flex align-items-center p-3" onclick="startChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3 shadow-sm" width="40" height="40" alt="@uName" />
+                        <span class="fw-medium">@uName</span>
                     </button>
                 }
             }
@@ -134,24 +172,29 @@
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header border-bottom-0 pb-0">
-        <h5 class="modal-title font-weight-bold">Add User to Chat</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-bold">Add User to Chat</h5>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <div class="mb-3">
-            <input type="text" class="form-control" placeholder="Search for a user..." id="addUserSearchInput">
+      <div class="modal-body p-4">
+        <div class="mb-4">
+            <div class="search-input-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search search-icon" viewBox="0 0 16 16">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input type="text" class="form-control" placeholder="Search for a user..." id="addUserSearchInput">
+            </div>
         </div>
-        <div class="list-group user-list">
+        <div class="list-group user-list rounded-3 shadow-sm border overflow-hidden">
             @if(allUsers != null)
             {
                 foreach(var u in allUsers)
                 {
                     var uName = u.DisplayName ?? u.UserName;
-                    <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center" onclick="addUserToChat('@u.Id')">
-                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" width="40" height="40" alt="@uName" />
-                        <span class="font-weight-bold">@uName</span>
+                    <button type="button" class="list-group-item list-group-item-action border-0 border-bottom d-flex align-items-center p-3" onclick="addUserToChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3 shadow-sm" width="40" height="40" alt="@uName" />
+                        <span class="fw-medium">@uName</span>
                     </button>
                 }
             }

@@ -15,7 +15,7 @@ public class ChatHub : Hub
         _context = context;
     }
 
-    public async Task SendMessage(string chatId, string message, string? audioUrl = null)
+    public async Task SendMessage(string chatId, string message, string? audioUrl = null, string? imageUrl = null)
     {
         var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null) return;
@@ -29,6 +29,7 @@ public class ChatHub : Hub
             UserId = userId,
             Content = message,
             AudioUrl = audioUrl,
+            ImageUrl = imageUrl,
             Timestamp = DateTime.UtcNow
         };
 
@@ -37,7 +38,7 @@ public class ChatHub : Hub
 
         var user = await _context.Users.FindAsync(userId);
         
-        await Clients.Group(chatId).SendAsync("ReceiveMessage", chatId, userId, user?.DisplayName ?? user?.UserName, user?.AvatarUrl, message, audioUrl, newMessage.Timestamp);
+        await Clients.Group(chatId).SendAsync("ReceiveMessage", chatId, userId, user?.DisplayName ?? user?.UserName, user?.AvatarUrl, message, audioUrl, imageUrl, newMessage.Timestamp);
     }
 
     public async Task JoinChat(string chatId)

@@ -89,6 +89,7 @@ public class ChatController : Controller
                 id = m.Id,
                 content = m.Content,
                 audioUrl = m.AudioUrl,
+                imageUrl = m.ImageUrl,
                 timestamp = m.Timestamp,
                 userId = m.UserId,
                 displayName = m.User.DisplayName ?? m.User.UserName,
@@ -127,6 +128,32 @@ public class ChatController : Controller
         await _context.SaveChangesAsync();
 
         return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UploadImage(IFormFile imageFile)
+    {
+        if (imageFile == null || imageFile.Length == 0)
+        {
+            return BadRequest("Invalid image file.");
+        }
+
+        var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "images");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
+        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await imageFile.CopyToAsync(stream);
+        }
+
+        var imageUrl = $"/uploads/images/{uniqueFileName}";
+        return Json(new { success = true, imageUrl });
     }
 
     [HttpPost]

@@ -280,5 +280,5 @@ C:\Users\solo\Desktop\cha\obj\Debug\net10.0\cha.genruntimeconfig.cache
 C:\Users\solo\Desktop\cha\obj\Debug\net10.0\ref\cha.dll
 C:\Users\solo\Desktop\cha\bin\Debug\net10.0\app.db
 C:\Users\solo\Desktop\cha\obj\Debug\net10.0\cha.sourcelink.json
-C:\Users\solo\Desktop\cha\obj\Debug\net10.0\compressed\0gpvwxh424-{0}-lps03vkq91-lps03vkq91.gz
-C:\Users\solo\Desktop\cha\obj\Debug\net10.0\compressed\bby9v3iv07-{0}-liezxvf9s6-liezxvf9s6.gz
+C:\Users\solo\Desktop\cha\obj\Debug\net10.0\compressed\bby9v3iv07-{0}-2w2s2zy6kw-2w2s2zy6kw.gz
+C:\Users\solo\Desktop\cha\obj\Debug\net10.0\compressed\0gpvwxh424-{0}-efntjv69pa-efntjv69pa.gz

@@ -7,9 +7,9 @@ const connection = new signalR.HubConnectionBuilder()
 
 let activeChatId = null;
 
-connection.on("ReceiveMessage", function (chatId, userId, displayName, avatarUrl, message, audioUrl, timestamp) {
+connection.on("ReceiveMessage", function (chatId, userId, displayName, avatarUrl, message, audioUrl, imageUrl, timestamp) {
     if (activeChatId == chatId) {
-        appendMessage(userId, displayName, avatarUrl, message, audioUrl, timestamp);
+        appendMessage(userId, displayName, avatarUrl, message, audioUrl, imageUrl, timestamp);
         scrollToBottom(true);
     }
     
@@ -17,7 +17,9 @@ connection.on("ReceiveMessage", function (chatId, userId, displayName, avatarUrl
     const chatItem = document.querySelector(`.chat-item[data-chat-id='${chatId}']`);
     if (chatItem) {
         const preview = chatItem.querySelector('p');
-        const displayMsg = audioUrl ? "🎤 Voice message" : message;
+        let displayMsg = message;
+        if (audioUrl) displayMsg = "🎤 Voice message";
+        else if (imageUrl) displayMsg = "🖼️ Image";
         preview.textContent = userId === currentUserId ? `You: ${displayMsg}` : displayMsg;
         
         // Move to top
@@ -57,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (message && chatId) {
             try {
-                await connection.invoke("SendMessage", chatId, message, null);
+                await connection.invoke("SendMessage", chatId, message, null, null);
                 input.value = '';
                 input.focus();
             } catch (err) {
@@ -80,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
             isRecording = false;
             document.getElementById('recordButton').classList.remove('recording-active');
             input.disabled = false;
-            input.placeholder = "Aa";
+            input.placeholder = "Type a message...";
             clearInterval(recordingTimerInterval);
             return;
         }
@@ -112,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const chatId = document.getElementById('currentChatId').value;
                         if (chatId) {
                             try {
-                                await connection.invoke("SendMessage", chatId, "", data.audioUrl);
+                                await connection.invoke("SendMessage", chatId, "", data.audioUrl, null);
                             } catch (err) {
                                 console.error(err);
                             }
@@ -138,6 +140,40 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             console.error('Error accessing microphone:', err);
             alert('Could not access microphone.');
+        }
+    });
+
+    // Image Upload Logic
+    document.getElementById('imageButton').addEventListener('click', () => {
+        document.getElementById('imageInput').click();
+    });
+
+    document.getElementById('imageInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const chatId = document.getElementById('currentChatId').value;
+        if (!chatId) return;
+
+        const formData = new FormData();
+        formData.append('imageFile', file);
+
+        try {
+            const response = await fetch('/Chat/UploadImage', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    await connection.invoke("SendMessage", chatId, "", null, data.imageUrl);
+                }
+            }
+        } catch (err) {
+            console.error('Error uploading image:', err);
+        } finally {
+            e.target.value = ''; // Reset input
         }
     });
 });
@@ -171,14 +207,14 @@ async function loadChat(chatId, name, avatarUrl) {
         messagesContainer.innerHTML = ''; // Clear
         
         messages.forEach(m => {
-            appendMessage(m.userId, m.displayName, m.avatarUrl, m.content, m.audioUrl, m.timestamp);
+            appendMessage(m.userId, m.displayName, m.avatarUrl, m.content, m.audioUrl, m.imageUrl, m.timestamp);
         });
         
         scrollToBottom(false);
     }
 }
 
-function appendMessage(userId, displayName, avatarUrl, content, audioUrl, timestamp) {
+function appendMessage(userId, displayName, avatarUrl, content, audioUrl, imageUrl, timestamp) {
     const messagesContainer = document.getElementById('chatMessages');
     const isMine = userId === currentUserId;
     
@@ -190,11 +226,16 @@ function appendMessage(userId, displayName, avatarUrl, content, audioUrl, timest
     div.className = `message-container ${isMine ? 'mine' : 'other'}`;
     
     let contentHtml = '';
-    if (audioUrl) {
+    let paddingClass = '';
+    
+    if (imageUrl) {
+        contentHtml = `<img src="${imageUrl}" class="message-image" alt="Image message" loading="lazy" />`;
+        paddingClass = 'p-1'; // Less padding for images
+    } else if (audioUrl) {
         // Custom audio player UI
         contentHtml = `
-            <div class="custom-audio-player d-flex align-items-center gap-2" data-audio-src="${audioUrl}" style="min-width: 150px;">
-                <button class="btn btn-sm ${isMine ? 'btn-light text-primary' : 'btn-primary text-white'} rounded-circle play-pause-btn shadow-sm" onclick="toggleAudio(this)" style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <div class="custom-audio-player d-flex align-items-center gap-2 ${isMine ? 'mine' : 'other'}" data-audio-src="${audioUrl}">
+                <button class="btn play-pause-btn shadow-sm" onclick="toggleAudio(this)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-play-fill play-icon" viewBox="0 0 16 16">
                       <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
                     </svg>
@@ -202,26 +243,27 @@ function appendMessage(userId, displayName, avatarUrl, content, audioUrl, timest
                       <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
                     </svg>
                 </button>
-                <div class="audio-progress flex-grow-1" style="height: 6px; width: 100px; background: ${isMine ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)'}; border-radius: 3px; position: relative; cursor: pointer;" onclick="seekAudio(event, this)">
-                    <div class="audio-progress-bar" style="height: 100%; width: 0%; background: ${isMine ? '#fff' : '#0084ff'}; border-radius: 3px; transition: width 0.1s linear;"></div>
+                <div class="audio-progress flex-grow-1" onclick="seekAudio(event, this)">
+                    <div class="audio-progress-bar"></div>
                 </div>
                 <audio class="d-none message-audio-element" ontimeupdate="updateAudioProgress(this)" onended="resetAudioPlayer(this)"></audio>
             </div>
         `;
+        paddingClass = 'p-2';
     } else if (content) {
         contentHtml = escapeHtml(content);
     }
     
     if (isMine) {
         div.innerHTML = `
-            <div class="message message-mine ${audioUrl ? 'p-2' : ''}">${contentHtml}</div>
+            <div class="message message-mine ${paddingClass}">${contentHtml}</div>
             <div class="message-time">${timeString}</div>
         `;
     } else {
         div.innerHTML = `
             <div class="message-avatar-container">
                 <img src="${finalAvatar}" class="message-avatar" title="${escapeHtml(displayName)}" />
-                <div class="message message-other ${audioUrl ? 'p-2' : ''}">${contentHtml}</div>
+                <div class="message message-other ${paddingClass}">${contentHtml}</div>
             </div>
             <div class="message-time">${timeString}</div>
         `;
