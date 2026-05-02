@@ -1,0 +1,163 @@
+@model IEnumerable<cha.Models.Chat>
+@{
+    ViewData["Title"] = "Messenger";
+    var currentUser = ViewBag.CurrentUser as cha.Models.ApplicationUser;
+    var allUsers = ViewBag.AllUsers as IEnumerable<cha.Models.ApplicationUser>;
+}
+
+<link rel="stylesheet" href="~/css/chat.css" />
+
+<div class="messenger-container d-flex w-100 h-100">
+    <div class="sidebar d-flex flex-column border-end">
+        <div class="sidebar-header p-3 border-bottom d-flex justify-content-between align-items-center">
+            <h4 class="m-0">Chats</h4>
+            <button class="btn btn-light rounded-circle p-2 shadow-sm new-chat-btn" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
+                  <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                  <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="sidebar-search p-3">
+            <input type="text" class="form-control rounded-pill" placeholder="Search Messenger" />
+        </div>
+        <div class="chat-list flex-grow-1 overflow-auto border-bottom">
+            @if (Model != null && Model.Any())
+            {
+                foreach (var chat in Model)
+                {
+                    var otherUser = chat.ChatUsers.FirstOrDefault(cu => cu.UserId != currentUser.Id)?.User;
+                    var chatName = chat.IsGroup ? chat.Name : (otherUser?.DisplayName ?? otherUser?.UserName);
+                    var avatarUrl = otherUser?.AvatarUrl ?? "/images/default-avatar.png";
+                    var lastMessage = chat.Messages.FirstOrDefault()?.Content ?? "No messages yet";
+
+                    <div class="chat-item d-flex align-items-center p-3" data-chat-id="@chat.Id">
+                        <img src="@avatarUrl" class="avatar rounded-circle me-3" alt="@chatName" onerror="this.src='https://ui-avatars.com/api/?name=@chatName&background=random'" />
+                        <div class="chat-info flex-grow-1 overflow-hidden">
+                            <h6 class="m-0 text-truncate font-weight-bold">@chatName</h6>
+                            <p class="m-0 text-muted small text-truncate">@lastMessage</p>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="p-3 text-center text-muted">No chats yet.</div>
+            }
+        </div>
+        
+        <div class="available-users-header p-3 bg-light border-bottom">
+            <h6 class="m-0 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Available Users</h6>
+        </div>
+        <div class="available-users-list flex-grow-1 overflow-auto" style="max-height: 30%;">
+            @if(allUsers != null)
+            {
+                foreach(var u in allUsers)
+                {
+                    var uName = u.DisplayName ?? u.UserName;
+                    <div class="chat-item d-flex align-items-center p-2 m-1" onclick="startChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" style="width: 36px; height: 36px;" alt="@uName" />
+                        <div class="chat-info flex-grow-1 overflow-hidden">
+                            <h6 class="m-0 text-truncate font-weight-bold" style="font-size: 0.95rem;">@uName</h6>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="main-chat flex-grow-1 d-flex flex-column d-none bg-light">
+        <div class="chat-header p-3 border-bottom d-flex align-items-center bg-white shadow-sm">
+            <img src="" id="activeChatAvatar" class="avatar rounded-circle me-3" alt="" />
+            <div class="active-chat-info">
+                <h5 class="m-0 font-weight-bold" id="activeChatName">Chat Name</h5>
+            </div>
+        </div>
+        <div class="chat-messages flex-grow-1 p-4 overflow-auto" id="chatMessages">
+            <div class="text-center text-muted mt-5">Select a chat to start messaging</div>
+        </div>
+        <div class="chat-input p-3 border-top bg-white">
+            <form id="messageForm" class="d-flex align-items-center">
+                <input type="hidden" id="currentChatId" />
+                <button type="button" class="btn text-primary rounded-circle p-2 me-2 btn-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3v-3z"/>
+                    </svg>
+                </button>
+                <input type="text" id="messageInput" class="form-control rounded-pill flex-grow-1 me-2 px-3 bg-light" placeholder="Aa" autocomplete="off" />
+                <button type="submit" class="btn text-primary rounded-circle p-2 btn-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-send-fill" viewBox="0 0 16 16">
+                      <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title font-weight-bold">New Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+            <input type="text" class="form-control" placeholder="Search for a user..." id="userSearchInput">
+        </div>
+        <div class="list-group user-list">
+            @if(allUsers != null)
+            {
+                foreach(var u in allUsers)
+                {
+                    var uName = u.DisplayName ?? u.UserName;
+                    <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center" onclick="startChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" width="40" height="40" alt="@uName" />
+                        <span class="font-weight-bold">@uName</span>
+                    </button>
+                }
+            }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title font-weight-bold">Add User to Chat</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+            <input type="text" class="form-control" placeholder="Search for a user..." id="addUserSearchInput">
+        </div>
+        <div class="list-group user-list">
+            @if(allUsers != null)
+            {
+                foreach(var u in allUsers)
+                {
+                    var uName = u.DisplayName ?? u.UserName;
+                    <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center" onclick="addUserToChat('@u.Id')">
+                        <img src="@(u.AvatarUrl ?? $"https://ui-avatars.com/api/?name={uName}&background=random")" class="avatar rounded-circle me-3" width="40" height="40" alt="@uName" />
+                        <span class="font-weight-bold">@uName</span>
+                    </button>
+                }
+            }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/chat.js"></script>
+    <script>
+        var currentUserId = "@currentUser.Id";
+    </script>
+}
